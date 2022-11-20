@@ -3,6 +3,7 @@
 # Date: 11/20/2022
 
 import unittest, solution
+from datetime import datetime
 
 class TestSolutionFunctions(unittest.TestCase):
 
@@ -104,5 +105,14 @@ class TestSolutionFunctions(unittest.TestCase):
         expected = 37.5
         self.assertEqual(result, expected)
 
+    # unit test for calculating duration of hours worked given start and end date
+    def test_hours_worked(self):
+        format   = '%Y-%m-%d %H:%M:%S'
+        start    = '2022-11-18 08:02:20'
+        end      = '2022-11-18 16:15:40'
+        result   = round(solution.get_hours_worked(datetime.strptime(start, format), datetime.strptime(end, format)), 4)
+        expected = 8.2222
+        self.assertEqual(result, expected)
+        
 if __name__ == '__main__':
     unittest.main()
