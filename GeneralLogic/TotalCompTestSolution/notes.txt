@@ -1,0 +1,25 @@
+-- rates/wages notes --
+0-40 hours  = regular time
+41-48 hours = overtime
+49+ hours   = double time
+
+-- job data --
+"job": str, 
+"rate": float,
+"benefitsRate": float
+
+-- employee data --
+"employee": string,
+"timepunch": timepunch array
+
+-- timepunch data --
+"job": str,
+"start": datetime,
+"end": datetime
+
+-- Desired output for each employee --
+-> Regular Hours (cannot exceed 40 hours)
+-> Overtime Hours (hours that exceeded 40)
+-> Double Time Hours (hours that exceeded 48)
+-> Wage Total (total amount paid to employee based on rate, including overtime/doubletime)
+-> Benefits Total (total amount paid to employee based on benefits rate)

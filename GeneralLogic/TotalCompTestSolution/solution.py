@@ -1,53 +1,79 @@
 # -- Solution to the Total Compensation Test in PunchLogicTest.jsonc --
 # Author: Griffin Bourdon
-# Date: 11/19/2022
-
-# -- rates/wages notes --
-# 0-40 hours  = regular time
-# 41-48 hours = overtime
-# 49+ hours   = double time
-
-# -- job rate information -- 
-#   Hospital - Painter
-#       -> Rate: $31.25/hr
-#       -> Benefits Rate: $1/hr
-
-#   Hospital - laborer
-#       -> Rate: $20.00/hr
-#       -> Benefits Rate: $0.50/hr
-
-#   Shop - laborer
-#       -> Rate: $16.25/hr
-#       -> Benefits Rate: $1.25/hr
-
-# -- Desired output for each employee --
-# -> Regular Hours (cannot exceed 40 hours)
-# -> Overtime Hours (hours that exceeded 40)
-# -> Double Time Hours (hours that exceeded 48)
-# -> Wage Total (total amount paid to employee based on rate, including overtime/doubletime)
-# -> Benefits Total (total amount paid to employee based on benefits rate)
+# Date: 11/20/2022
 
 import json, os, sys
 from datetime import datetime, date, timedelta
 
 # function to calculate the total amount of hours worked given a start and end date
-def getHours(start, end):
+def get_hours_worked(start, end):
     duration = (end - start)
     seconds  = duration.total_seconds()
     minutes  = (seconds/60)
     hours    = (minutes/60)
     return hours
 
-# function to calculate the wage total given the amount of regular, overtime, and doubletime hours as well as the rate of the job
-def calculateWageTotal(regular, overtime, doubletime, rate, overtimeRate, doubletimeRate):
-    regularTotal    = (regular * rate)
-    overtimeTotal   = (overtime * rate * overtimeRate)
-    doubletimeTotal = (doubletime * rate * doubletimeRate)
+# function to calculate the regular, overtime, and doubletime hours worked given the total hours worked and hours for the shift
+def get_hours(totalHours, hours_worked):
+    # temp values to store in result 
+    regular     = 0.0
+    overtime    = 0.0
+    doubletime  = 0.0
+    result      = {
+        'regular': regular,
+        'overtime': overtime,
+        'doubletime': doubletime
+    }
 
-    return (regularTotal + overtimeTotal + doubletimeTotal)
+    #   -- There are 4 cases which need to be accounted for --
+
+    # CASE 1: All of the hours worked in the current punch are regular hours
+    if totalHours + hours_worked <= 40:
+        regular = hours_worked
+
+    # CASE 2: The amount of hours worked in the current punch is split between regular and some overtime
+    elif totalHours + hours_worked <= 48:
+        regular  = 40 - totalHours
+        overtime = (totalHours + hours_worked) - 40
+
+    # CASE 3: the amount of hours worked in the current punch is split between overtime and some doubletime
+    elif totalHours < 48:
+        overtime    = 48 - totalHours
+        doubletime  = (totalHours + hours_worked) - 48
+
+    # CASE 4: The amount of hours worked in the current punch are all doubletime hours
+    else:
+        doubletime = hours_worked
+    
+    # building the result and returning
+    result['regular']    = regular
+    result['overtime']   = overtime
+    result['doubletime'] = doubletime
+
+    return result
+
+# function to calculate the wage total given the amount of regular, overtime, and doubletime hours as well as the rate of the job
+def get_wage_total(regular, overtime, doubletime, rate, overtimeRate, doubletimeRate):
+    baseTotal       = get_base_wage(regular, rate)
+    overtimeTotal   = get_overtime_wage(overtime, rate, overtimeRate)
+    doubletimeTotal = get_doubletime_wage(doubletime, rate, doubletimeRate)
+
+    return baseTotal + overtimeTotal + doubletimeTotal
+
+# function to calculate the base wage given regular hours worked and an hourly rate
+def get_base_wage(regular, rate):
+    return regular * rate
+
+# function to calculate the overtime wage given overtime hours worked, hourly rate, and overtime rate
+def get_overtime_wage(overtime, rate, overtimeRate):
+    return overtime * rate * overtimeRate
+
+# function to calculate the doubletime wage given doubletime hours worked, hourly rate, and doubletime rate
+def get_doubletime_wage(doubletime, rate, doubletimeRate):
+    return doubletime * rate * doubletimeRate
 
 # function to calculate the total benefit given the hours and rate
-def calculateBenefitTotal(hours, benefitsRate):
+def get_benefit_total(hours, benefitsRate):
     return hours * benefitsRate
 
 # main function of the program
@@ -68,7 +94,7 @@ def main():
 
     # data structure to hold job objects. 
     # NOTE: the input meta data is stored as an array of jobs, so for easier access when calculating
-    # each employees wages, I decided to use a lookup table. I am assuming each job title is unique.
+    # each employees wages, I decided to use a seperate key/value object. I am assuming each job title is unique.
     jobTable = {}
 
     # looping over job meta data in the input
@@ -78,7 +104,10 @@ def main():
         benefitsRate = j['benefitsRate']
 
         # adding the job to the table for easier access later
-        jobTable[title] = {'rate': rate, 'benefitsRate': benefitsRate}
+        jobTable[title] = {
+            'rate': rate, 
+            'benefitsRate': benefitsRate
+        }
     
     # looping over employee meta data in the input
     for e in data['employeeData']:
@@ -95,55 +124,30 @@ def main():
 
         # looping over each time punch for current employee
         for punch in e['timePunch']:
-            # temp variables for regular, overtime, and doubletime hours based on current punch
-            regular      = 0.0
-            overtime     = 0.0
-            doubletime   = 0.0
-
             # time punch data
             title = punch['job']
             start = punch['start']
             end   = punch['end']
 
-            # getting total hours for this punch
-            hours = getHours(
-                datetime.strptime(start, FORMAT),
-                datetime.strptime(end, FORMAT)
-            )
+            # getting total hours worked for this punch
+            hours_worked = get_hours_worked(datetime.strptime(start, FORMAT), datetime.strptime(end, FORMAT))
 
             # getting rates
             rate         = jobTable[title]['rate']
             benefitsRate = jobTable[title]['benefitsRate']
 
-            # logic to calculate the amount of regular, overtime, and doubletime hours which
-            # need to be applied to the overall wage total based on the current job rate for the current punch.
+            # getting the regular, overtime, and doubletime hours worked for this punch
+            hours       = get_hours(totalHours, hours_worked)
+            regular     = hours['regular']
+            overtime    = hours['overtime']
+            doubletime  = hours['doubletime']
 
-            #   -- There are 4 cases which need to be accounted for --
-
-            # CASE 1: All of the hours worked in the current punch are regular hours
-            if totalHours + hours <= 40:
-                regular = hours
-
-            # CASE 2: The amount of hours worked in the current punch is split between regular and some overtime
-            elif totalHours + hours <= 48:
-                regular  = 40 - totalHours
-                overtime = (totalHours + hours) - 40
-
-            # CASE 3: The amount of hours worked in the current punch is split between overtime and some doubletime
-            elif totalHours < 48:
-                overtime    = 48 - totalHours
-                doubletime  = (totalHours + hours) - 48
-
-            # CASE 4: The amount of hours worked in the current punch are all doubletime hours
-            else:
-                doubletime = hours
-            
             # adding to the wage and benefit totals using the helper functions defined above
-            wageTotal       += calculateWageTotal(regular, overtime, doubletime, rate, OVERTIME_RATE, DOUBLETIME_RATE)
-            benefitTotal    += calculateBenefitTotal(hours, benefitsRate)
+            wageTotal       += get_wage_total(regular, overtime, doubletime, rate, OVERTIME_RATE, DOUBLETIME_RATE)
+            benefitTotal    += get_benefit_total(hours_worked, benefitsRate)
 
             # adding to the hour totals
-            totalHours      += hours
+            totalHours      += hours_worked
             regularTotal    += regular
             overtimeTotal   += overtime
             doubletimeTotal += doubletime
